@@ -1,52 +1,60 @@
-from flask import request
-from flask.wrappers import Response
-from db import db
+from flask import request, make_response
+import json
+from sqlalchemy.orm.exc import NoResultFound as NotFound
+from database import db_session
 from models.product import ProductsModel
 
+
+def _response(data, code):
+    return make_response(json.dumps(data, ensure_ascii=False), code)
+
+
 def init_app(app):
-    @app.route('/products', methods=['POST', 'GET'])
-    def handle_products():
-        if request.method == 'POST':
-            if request.is_json:
-                data = request.get_json()
-                new_product = ProductsModel(name=data['name'], price=data['price'])
-                db.session.add(new_product)
-                db.session.commit()
-                return {"message": f"Product {new_product.name} has been created successfully."}
-            else:
-                return {"error": "The request payload is not in JSON format"}
+    @ app.route('/products', methods=['GET'])
+    def get_products():
+        products = ProductsModel.query.all()
+        results = dict(count=len(products),
+                       products=[{"name": product.name,
+                                  "price": product.price}
+                                 for product in products])
+        return _response(results, 200)
 
-        elif request.method == 'GET':
-            products = ProductsModel.query.all()
-            results = [
-                {
-                    "name": product.name,
-                    "price": product.price
-                } for product in products]
+    @ app.route('/products', methods=['POST'])
+    def create_products():
+        data = request.get_json()
+        if not data['name'] or not data['price']:
+            return _response({"message": "Bad request"}, 400)
 
-            return {"count": len(results), "products": results}
+        new_product = ProductsModel(name=data['name'], price=data['price'])
+        db_session.session.add(new_product)
+        db_session.session.commit()
 
+        return _response({"message": f"Product {new_product.name} has been created successfully."}, 200)
 
-    @app.route('/products/<product_id>', methods=['GET', 'PUT', 'DELETE'])
-    def handle_product(product_id):
-        product = ProductsModel.query.get_or_404(product_id)
+    @ app.route('/products/<product_id>', methods=['GET'])
+    def get_product(product_id):
+        try:
+            product = ProductsModel.query.get_or_404(product_id)
+            return _response(product.to_dict(), 200)
+        except NotFound:
+            return _response({"message": "Produto não encontrado"}, 404)
 
-        if request.method == 'GET':
-            response = {
-                "name": product.name,
-                "price": product.price
-            }
-            return {"message": "sucess", "product": response}
-
-        elif request.method == 'PUT':
+    @ app.route('/products/<product_id>', methods=['PUT'])
+    def update_product(product_id):
+        try:
+            product = ProductsModel.query.get_or_404(product_id)
             data = request.get_json()
-            product.name = data['name']
-            product.price = data['price']
-            db.session.add(product)
-            db.session.commit()
-            return {"message": f"product {product.name} successfully updated"}
+            {product.update(db_session, key, value)
+             for (key, value) in data.items()}
+            return _response({"message": f"product {product.name} successfully updated"}, 200)
+        except NotFound:
+            return _response({"message": "Produto não encontrado"}, 404)
 
-        elif request.method == 'DELETE':
-            db.session.delete(product)
-            db.session.commit()
-            return {"message": f"Car {product.name} successfully deleted."}
+    @ app.route('/products/<product_id>', methods=['DELETE'])
+    def delete_product(product_id):
+        try:
+            product = ProductsModel.query.get_or_404()
+            db_session.removeProduct(product)
+            return _response({"message": f"Car {product.name} successfully deleted."}, 200)
+        except NotFound:
+            return _response({"message": "Produto não encontrado"}, 404)

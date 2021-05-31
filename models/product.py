@@ -1,12 +1,12 @@
-from db import db
+from database import db_session
 
-class ProductsModel(db.Model):
+
+class ProductsModel(db_session.Model):
     __tablename__ = 'products'
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String())
-    price = db.Column(db.Integer())
-    
+    id = db_session.Column(db_session.Integer, primary_key=True)
+    name = db_session.Column(db_session.String())
+    price = db_session.Column(db_session.Integer())
 
     def __init__(self, name, price):
         self.name = name

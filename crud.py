@@ -1,6 +1,4 @@
 from flask import Flask
-from flask import request
-from flask.wrappers import Response
 
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
